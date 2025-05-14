@@ -127,6 +127,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="nums_alexander.h" />
     <ClInclude Include="nums_tests.h" />
     <ClInclude Include="num_methodsp2.h" />
   </ItemGroup>

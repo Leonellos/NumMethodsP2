@@ -18,6 +18,61 @@ namespace nums {
         return max_abs;
     }
 
+    void Gauss(int N, double** A, double* B, double* ANS) {
+        for (int i = 0; i < N; i++) {
+            if (A[i][i] == 0) {
+                for (int j = i + 1; j < N; j++) {
+                    if (A[j][i] != 0) {
+                        for (int k = i; k < N; k++) {
+                            double trans = A[i][k];
+                            A[i][k] = A[j][k];
+                            A[j][k] = trans;
+                        }
+                        double trans = B[i];
+                        B[i] = B[j];
+                        B[j] = trans;
+                        break;
+                    }
+                }
+            }
+
+
+            double del = A[i][i];
+            for (int j = i; j < N; j++) {
+                A[i][j] /= del;
+            }
+            B[i] /= del;
+
+
+
+            for (int j = i + 1; j < N; j++) {
+                double m = A[j][i] / A[i][i];
+                for (int k = i; k < N; k++) {
+                    A[j][k] -= m * A[i][k];
+
+                }
+                B[j] -= m * B[i];
+            }
+            for (int i = 0; i < N; i++) {
+                ANS[i] = B[i];
+            }
+        }
+
+
+
+
+
+        for (int i = N - 1; i > -1; i--) {
+            for (int j = i - 1; j > -1; j--) {
+                B[j] -= A[j][i] / A[i][i] * B[i];
+            }
+        }
+    }
+
+
+
+
+
 
     // Явная схема Рунге–Кутты 2-го порядка (метод Рунге–Хейна)
     //n     — размерность вектор - функции решения(количество функций в системе).
@@ -82,8 +137,8 @@ namespace nums {
     // N  — число точек на исходной (грубой) сетке
     // u  — массив[N][n] для решения на исходной сетке
     // v  — начальные условия
-    // t0 — начальн. значение независимой переменной
-    // T  — конечн. значение независимой переменной
+    // t0 — начальное значение независимой переменной
+    // T  — конечное значение независимой переменной
     // F  — правая часть системы
     // r  — масштаб сетки (количество подшагов на каждом интервале)
     void ERK_2(int n, int N, double** u, double* v,
@@ -162,106 +217,62 @@ namespace nums {
     void ROS_1_a05(int n, int N, double* t, double** u, double* v,
         double t0, double T,
         void F(double* ans, double t, double* u),
-        void Fu(double** ans, double t, double* u))
-    {
-        const double a = 0.5;   // коэффициент схемы
-        // Выделяем вспомогательные массивы
-        double* f = new double[n];
+        void Fu(double** ans, double t, double* u)) {
+        // Параметр схемы
+        const double gamma = 0.5;
+
+        // Дополнительные массивы
         double* w1 = new double[n];
-        double** J = new double* [n];
+        double* f = new double[n];
+        double** M = new double* [n];
         for (int i = 0; i < n; ++i) {
-            J[i] = new double[n];
+            M[i] = new double[n];
         }
 
-        // Шаг по времени
+        // Расчет шага по времени
         double h = (T - t0) / (N - 1);
 
         // Начальные условия
-        t[0] = t0;
-        for (int i = 0; i < n; ++i) {
-            u[0][i] = v[i];
+        for (int j = 0; j < n; ++j) {
+            u[0][j] = v[j];
         }
+        t[0] = t0;
 
-        // Основной цикл
-        for (int k = 0; k < N - 1; ++k) {
-            double tk = t[k];
-            double* uk = u[k];
+        // Основной цикл по шагам
+        for (int i = 0; i < N - 1; ++i) {
+            // 1) вычисляем f = F(t_i, u_i)
+            F(f, t[i], u[i]);
 
-            // 1) Вычислить f = F(tk, uk)
-            F(f, tk, uk);
+            // 2) вычисляем якобиан J = Fu(t_i, u_i) в M
+            Fu(M, t[i], u[i]);
 
-            // 2) Вычислить якобиан J = Fu(tk, uk)
-            Fu(J, tk, uk);
-
-            // 3) Собираем матрицу A = I - a*h*J и вектор rhs = h*f
-            //    и решаем A * w1 = rhs
-            //    массив rhs временно запишем в f
-            for (int i = 0; i < n; ++i) {
-                f[i] *= h;  // rhs = h * f
-            }
-            // Собираем A в матрице J (перезапишем): J = I - a*h*J
-            for (int i = 0; i < n; ++i) {
-                for (int j = 0; j < n; ++j) {
-                    J[i][j] = (i == j ? 1.0 : 0.0) - a * h * J[i][j];
+            // 3) собираем матрицу (I - gamma*h*J)
+            for (int r = 0; r < n; ++r) {
+                for (int c = 0; c < n; ++c) {
+                    M[r][c] = -gamma * h * M[r][c];
                 }
+                M[r][r] += 1.0;
             }
 
-            // Метод Гаусса с частичным выбором главного элемента
-            // Разгонка
-            for (int i = 0; i < n; ++i) {
-                // поиск максимума в столбце i
-                int piv = i;
-                double maxv = std::fabs(J[i][i]);
-                for (int r = i + 1; r < n; ++r) {
-                    double vabs = std::fabs(J[r][i]);
-                    if (vabs > maxv) {
-                        maxv = vabs;
-                        piv = r;
-                    }
-                }
-                // обмен строк i и piv в J и в rhs (f)
-                if (piv != i) {
-                    std::swap(J[i], J[piv]);
-                    std::swap(f[i], f[piv]);
-                }
-                // масштабирование и вычитание
-                double diag = J[i][i];
-                for (int j = i; j < n; ++j) {
-                    J[i][j] /= diag;
-                }
-                f[i] /= diag;
-                for (int r = i + 1; r < n; ++r) {
-                    double factor = J[r][i];
-                    for (int c = i; c < n; ++c) {
-                        J[r][c] -= factor * J[i][c];
-                    }
-                    f[r] -= factor * f[i];
-                }
-            }
-            // Обратный ход
-            for (int i = n - 1; i >= 0; --i) {
-                double sum = 0.0;
-                for (int j = i + 1; j < n; ++j) {
-                    sum += J[i][j] * w1[j];
-                }
-                w1[i] = f[i] - sum;
-            }
+            // 4) решаем систему M * w1 = f
+            Gauss(n, M, f, w1);
 
-            // 4) Обновляем u и t
-            t[k + 1] = tk + h;
-            for (int i = 0; i < n; ++i) {
-                u[k + 1][i] = uk[i] + w1[i];
+            // 5) обновляем u_{i+1} = u_i + h*w1 и t_{i+1}
+            for (int j = 0; j < n; ++j) {
+                u[i + 1][j] = u[i][j] + h * w1[j];
             }
+            t[i + 1] = t[i] + h;
         }
 
         // Освобождаем память
-        delete[] f;
         delete[] w1;
+        delete[] f;
         for (int i = 0; i < n; ++i) {
-            delete[] J[i];
+            delete[] M[i];
         }
-        delete[] J;
+        delete[] M;
     }
+
 
 
 
@@ -278,98 +289,54 @@ namespace nums {
     void ROS_1_a1(int n, int N, double* t, double** u, double* v,
         double t0, double T,
         void F(double* ans, double t, double* u),
-        void Fu(double** ans, double t, double* u))
-    {
-        // Выделение памяти
-        double* w1 = new double[n];
-        double* f = new double[n];
-        double** M = new double* [n];
+        void Fu(double** ans, double t, double* u)) {
+        // Параметр схемы (gamma = 1 для первого порядка)
+        const double gamma = 1.0;
+
+        // Дополнительные массивы
+        double* w1 = new double[n];      // вектор приращений
+        double* f = new double[n];      // F(t_i, u_i)
+        double** M = new double* [n];     // матрица (I - gamma·h·J)
         for (int i = 0; i < n; ++i) {
             M[i] = new double[n];
         }
 
-        // Шаг сетки
+        // Шаг по времени
         double h = (T - t0) / (N - 1);
 
         // Начальные условия
+        for (int j = 0; j < n; ++j) {
+            u[0][j] = v[j];
+        }
         t[0] = t0;
-        for (int i = 0; i < n; ++i) {
-            u[0][i] = v[i];
+
+        // Основной цикл по узлам сетки
+        for (int i = 0; i < N - 1; ++i) {
+            // 1) вычисляем f = F(t_i, u_i)
+            F(f, t[i], u[i]);
+
+            // 2) вычисляем якобиан J = Fu(t_i, u_i) в M
+            Fu(M, t[i], u[i]);
+
+            // 3) собираем матрицу (I - gamma·h·J)
+            for (int r = 0; r < n; ++r) {
+                for (int c = 0; c < n; ++c) {
+                    M[r][c] = -gamma * h * M[r][c];
+                }
+                M[r][r] += 1.0;
+            }
+
+            // 4) решаем систему M * w1 = f
+            Gauss(n, M, f, w1);
+
+            // 5) обновляем u_{i+1} = u_i + h * w1 и t_{i+1}
+            for (int j = 0; j < n; ++j) {
+                u[i + 1][j] = u[i][j] + h * w1[j];
+            }
+            t[i + 1] = t[i] + h;
         }
 
-        // Основной цикл по шагам
-        const double gamma = 1.0;  // коэффициент схемы (обеспечивает L1-устойчивость)
-        for (int k = 0; k < N - 1; ++k) {
-            // Текущее время
-            double tk = t[k];
-            // Вычисление правой части и Якобиана в (tk, u[k])
-            F(f, tk, u[k]);
-            Fu(M, tk, u[k]);
-
-            // Формирование матрицы A = I - h*gamma*M
-            // и вектора-правой части b = f
-            double** A = new double* [n];
-            double* b = new double[n];
-            for (int i = 0; i < n; ++i) {
-                A[i] = new double[n];
-                b[i] = f[i];
-                for (int j = 0; j < n; ++j) {
-                    A[i][j] = (i == j ? 1.0 : 0.0) - h * gamma * M[i][j];
-                }
-            }
-
-            // Решение SLAE A * w1 = b методом Гаусса
-            for (int i = 0; i < n; ++i) {
-                // Поиск опорного элемента
-                int piv = i;
-                for (int j = i + 1; j < n; ++j) {
-                    if (std::fabs(A[j][i]) > std::fabs(A[piv][i])) {
-                        piv = j;
-                    }
-                }
-                // Перестановка строк
-                if (piv != i) {
-                    std::swap(A[piv], A[i]);
-                    std::swap(b[piv], b[i]);
-                }
-                // Нормировка и исключение
-                double diag = A[i][i];
-                for (int j = i; j < n; ++j) {
-                    A[i][j] /= diag;
-                }
-                b[i] /= diag;
-                for (int urow = i + 1; urow < n; ++urow) {
-                    double factor = A[urow][i];
-                    for (int j = i; j < n; ++j) {
-                        A[urow][j] -= factor * A[i][j];
-                    }
-                    b[urow] -= factor * b[i];
-                }
-            }
-            // Обратный ход
-            for (int i = n - 1; i >= 0; --i) {
-                double sum = b[i];
-                for (int j = i + 1; j < n; ++j) {
-                    sum -= A[i][j] * w1[j];
-                }
-                w1[i] = sum;  // так как диагональ уже = 1
-            }
-
-            // Обновление решения и узла сетки
-            t[k + 1] = tk + h;
-            for (int i = 0; i < n; ++i) {
-                u[k + 1][i] = u[k][i] + h * w1[i];
-            }
-
-            // Освобождение памяти для A и b
-            for (int i = 0; i < n; ++i) {
-                delete[] A[i];
-            }
-            delete[] A;
-            delete[] b;
-        }
-
-        // Очистка памяти
+        // Освобождение памяти
         delete[] w1;
         delete[] f;
         for (int i = 0; i < n; ++i) {
@@ -377,6 +344,7 @@ namespace nums {
         }
         delete[] M;
     }
+
 
 
     // Явная схема Рунге–Кутты 2-го порядка с адаптивным контролем точности.
@@ -391,7 +359,7 @@ namespace nums {
     // r     — множитель для сгущения сетки (целое >=2).
     void ERK_2_prec(int n, int N, double** u, double* v, double t0, double T,
         void F(double* ans, double t, double* u), int r, double eps) {
-        double R = 2 * eps;
+        double R = 2 * eps; //Задаём больше, чем величина ошибки, чтобы выполнился while
         int r1 = 1;
         int r2 = r;
 

@@ -1,6 +1,8 @@
 #pragma once
 #include <cmath>
 #include <iomanip>
+//#include "nums_alexander.h"
+
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
@@ -70,7 +72,7 @@ namespace nums {
     void test_ERK2() {
         std::cout << "\n\t Тест ERK2...\n";
         // Параметры сетки
-        const int n = 1;       // размер системы
+        const int n = 2;       // размер системы
         const int N = 101;     // число точек
         const double t0 = 0.0; // начальное время
         const double T = 5.0; // конечное время
@@ -86,9 +88,11 @@ namespace nums {
 
         // Задаём начальное условие u(0)=1
         v[0] = 1.0;
+        v[1] = 0;
 
         // Запускаем метод РК2
-        nums::ERK_2(n, N, t.data(), uptr.data(), v.data(), t0, T, nums_service::F_exp_decay);
+        nums::ERK_2(n, N, t.data(), uptr.data(), v.data(), t0, T, nums_service::F_test);
+        //nums_alex::ERK_2(n, N, t.data(), uptr.data(), v.data(), t0, T, nums_service::F_test);
 
         // Вывод результатов в консоль и в CSV-файл
         std::ofstream fout("solution.csv");
@@ -120,9 +124,11 @@ namespace nums {
         }
         double v[n];
         v[0] = 1.0;  // u(0)=1
+        //v[1] = 0.0;
 
         // Запуск метода
         ROS_1_a05(n, N, t, u, v, t0, T, nums_service::F_test, nums_service::Fu_test);
+        //nums_alex::ROS_1_a05(n, N, t, u, v, t0, T, nums_service::F_test, nums_service::Fu_test);
 
         // Вывод результатов и оценка погрешности
         std::cout << " t [s]    u_numeric      u_exact       error\n";
@@ -194,7 +200,7 @@ namespace nums {
 
     // Тест-функция для ERK_2_prec.
     void test_ERK_2_prec() {
-        const int n = 1;          // размерность системы
+        const int n = 2;          // размерность системы
         const int N = 11;         // число узлов на исходной сетке
         const double t0 = 0.0;    // начальное время, с
         const double T = 1.0;     // конечное время, с
@@ -208,9 +214,11 @@ namespace nums {
         }
         double* v = new double[n];
         v[0] = 1.0;  // u(0)=1
+        v[1] = 0.0;
 
         // Запускаем адаптивный ERK2
-        ERK_2_prec(n, N, u, v, t0, T, nums_service::F_test, r, eps);
+        ERK_2_prec(n, N, u, v, t0, T, nums_service::F_exp, r, eps);
+        //nums_alex::ERK_2_prec(n, N, u, v, t0, T, nums_service::F_exp, r, eps);
 
         // Аналитическое решение: u(T) = exp(-T)
         double u_exact = std::exp(-T);
